@@ -1,0 +1,26 @@
+version: "3.2"
+services:
+  postgres:
+    container_name: book-pg-14
+    image: postgres:14
+    environment:
+      POSTGRES_DB: "postgres"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "god"
+    volumes:
+      - ./bookservice/src/main/resources/db/migration/V1_INIT_MIGRATION.sql:/docker-entrypoint-initdb.d/V1_INIT_MIGRATION.sql
+    ports:
+      - "5432:5432"
+  bookservice:
+    container_name: bookservice
+    image: bookservice:0.0.1-SNAPSHOT
+    build:
+      context: bookservice
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/postgres
