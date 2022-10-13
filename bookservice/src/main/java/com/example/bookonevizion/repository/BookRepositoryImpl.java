@@ -1,7 +1,6 @@
 package com.example.bookonevizion.repository;
 
-import com.example.bookonevizion.dto.AuthorDTO;
-import com.example.bookonevizion.dto.AuthorSymbolCountDTO;
+import com.example.bookonevizion.dto.SymbolCountByAuthorsDTO;
 import com.example.bookonevizion.dto.BookDTO;
 import com.example.bookonevizion.entity.BookEntity;
 import com.example.bookonevizion.mapper.BookMapper;
@@ -12,6 +11,7 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
 import java.sql.*;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Repository
@@ -22,13 +22,14 @@ public class BookRepositoryImpl implements BookRepository {
     private BookMapper mapper;
 
     @Override
-    public List<BookDTO> findAllOrderByTitleDesc() {
+    public List<BookDTO> findAll(String sort) {
+        String[] order = sort.split(",");
         List<BookEntity> entityList = jdbcTemplate.query(
-                "SELECT * FROM one_vizion.book ORDER BY title DESC",
+                "SELECT * FROM one_vizion.book ORDER BY " + order[0] + " " + order[1],
                 this::rowToBookEntity
         );
         return entityList
-                .stream()
+                .parallelStream()
                 .map(mapper::entityToDto)
                 .collect(Collectors.toList());
     }
@@ -58,37 +59,26 @@ public class BookRepositoryImpl implements BookRepository {
     }
 
     @Override
-    public AuthorDTO findByAuthor(String author) {
+    public Map<String, List<BookDTO>> groupBy(String groupBy) {
         List<BookEntity> entityList = jdbcTemplate.query(
-                "SELECT * FROM one_vizion.book WHERE author = ?",
-                this::rowToBookEntity,
-                author
+                "SELECT * FROM one_vizion.book",
+                this::rowToBookEntity
         );
-
-        if(entityList.isEmpty()) {
-            return AuthorDTO.builder().build();
-        } else {
-            return AuthorDTO.builder()
-                    .author(entityList.get(0).getAuthor())
-                    .books(entityList.stream().map(BookEntity::getTitle).collect(Collectors.toList()))
-                    .build();
-        }
+        return entityList
+                .parallelStream()
+                .map(mapper::entityToDto)
+                .collect(Collectors.groupingBy(getBookGroupMethod(groupBy)));
     }
 
     @Override
-    public List<AuthorSymbolCountDTO> findAuthorBySymbol(String symbol) {
-        List<AuthorDTO> authorDTOList = jdbcTemplate.query(
-                "SELECT author, string_agg(title, ';') AS books FROM one_vizion.book GROUP BY author",
-                this::rowToAuthorDto
-        );
-        return authorDTOList
-                .stream()
-                .map(authorDTO -> new AuthorSymbolCountDTO(
-                        authorDTO.getAuthor(),
-                        authorDTO.getBooks().stream().flatMap(book -> Arrays.stream(book.split(""))).filter(c -> c.equalsIgnoreCase(symbol)).count()))
-                .sorted(Collections.reverseOrder())
-                .limit(10)
-                .collect(Collectors.toList());
+    public List<SymbolCountByAuthorsDTO> symbolCountByAuthors(String symbol) {
+        String query =
+                "select symbol_occur.author, count(symbol) as symbol_count from (select author, regexp_matches(title, '" +
+                symbol +
+                "', 'gi') symbol from one_vizion.book) as symbol_occur group by symbol_occur.author order by symbol_count desc limit 10";
+
+        return jdbcTemplate.query(query, this::rowToAuthorSymbolCountDTO);
+
     }
 
     private BookEntity rowToBookEntity(ResultSet row, int rowNum) throws SQLException {
@@ -100,11 +90,21 @@ public class BookRepositoryImpl implements BookRepository {
         );
     }
 
-    private AuthorDTO rowToAuthorDto(ResultSet row, int rowNum) throws SQLException {
-        return AuthorDTO.builder()
+    private SymbolCountByAuthorsDTO rowToAuthorSymbolCountDTO(ResultSet row, int rowNum) throws SQLException {
+        return SymbolCountByAuthorsDTO.builder()
                 .author(row.getString("author"))
-                .books(Arrays.asList(row.getString("books").split(";")))
+                .count(row.getLong("symbol_count"))
                 .build();
+    }
+
+    private Function<BookDTO, String> getBookGroupMethod(String alias) {
+        switch (alias) {
+            case "title":
+                return BookDTO::getTitle;
+            case "description":
+                return BookDTO::getDescription;
+            default: return BookDTO::getAuthor;
+        }
     }
 
 }

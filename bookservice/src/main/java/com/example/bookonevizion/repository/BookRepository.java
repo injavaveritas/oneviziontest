@@ -1,18 +1,19 @@
 package com.example.bookonevizion.repository;
 
-import com.example.bookonevizion.dto.AuthorDTO;
-import com.example.bookonevizion.dto.AuthorSymbolCountDTO;
+import com.example.bookonevizion.dto.SymbolCountByAuthorsDTO;
 import com.example.bookonevizion.dto.BookDTO;
+
 import java.util.List;
+import java.util.Map;
 
 public interface BookRepository {
 
-    List<BookDTO> findAllOrderByTitleDesc();
+    List<BookDTO> findAll(String order);
 
     BookDTO save (BookDTO dto);
 
-    AuthorDTO findByAuthor(String author);
+    Map<String, List<BookDTO>> groupBy(String groupBy);
 
-    List<AuthorSymbolCountDTO> findAuthorBySymbol(String symbol);
+    List<SymbolCountByAuthorsDTO> symbolCountByAuthors(String symbol);
 
 }

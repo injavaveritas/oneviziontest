@@ -1,7 +1,6 @@
 package com.example.bookonevizion.controller;
 
-import com.example.bookonevizion.dto.AuthorDTO;
-import com.example.bookonevizion.dto.AuthorSymbolCountDTO;
+import com.example.bookonevizion.dto.SymbolCountByAuthorsDTO;
 import com.example.bookonevizion.dto.BookDTO;
 import com.example.bookonevizion.repository.BookRepository;
 import lombok.AllArgsConstructor;
@@ -10,21 +9,23 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/books")
+@RequestMapping("/book-management")
 @AllArgsConstructor
 public class BookController {
 
     private BookRepository repository;
 
-    @GetMapping
-    public ResponseEntity<List<BookDTO>> findAllOrderByTitleDesc() {
-        List<BookDTO> list = repository.findAllOrderByTitleDesc();
+    @GetMapping("/books")
+    public ResponseEntity<List<BookDTO>> findAll(
+            @RequestParam(required = false, value = "sort", defaultValue = "title,desc") String sort) {
+        List<BookDTO> list = repository.findAll(sort);
         return ResponseEntity.ok().body(list);
     }
 
-    @PostMapping
+    @PostMapping("/books")
     public ResponseEntity<BookDTO> save(@RequestBody BookDTO dto) {
         dto = repository.save(dto);
         URI uri = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}")
@@ -32,15 +33,17 @@ public class BookController {
         return ResponseEntity.created(uri).body(dto);
     }
 
-    @GetMapping(params = "author")
-    public ResponseEntity<AuthorDTO> findByAuthor(@RequestParam String author) {
-        AuthorDTO dto = repository.findByAuthor(author);
+    @GetMapping("/grouped-books")
+    public ResponseEntity<Map<String, List<BookDTO>>> groupBy(
+            @RequestParam(required = false, value = "group-by", defaultValue = "author") String groupBy) {
+        Map<String, List<BookDTO>> dto = repository.groupBy(groupBy);
         return ResponseEntity.ok().body(dto);
     }
 
-    @GetMapping(params = "symbol")
-    public ResponseEntity<List<AuthorSymbolCountDTO>> findAuthorBySymbol(@RequestParam String symbol) {
-        List<AuthorSymbolCountDTO> list = repository.findAuthorBySymbol(symbol);
+    @GetMapping("/symbol-count-by-authors")
+    public ResponseEntity<List<SymbolCountByAuthorsDTO>> symbolCountByAuthors(
+            @RequestParam(value = "symbol") String symbol) {
+        List<SymbolCountByAuthorsDTO> list = repository.symbolCountByAuthors(symbol);
         return ResponseEntity.ok().body(list);
     }
 

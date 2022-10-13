@@ -17,7 +17,7 @@ public class BookOneVizionApplication {
 	@Bean
 	public ApplicationRunner dataLoader(BookRepository repository) {
 		return args -> {
-			if(repository.findAllOrderByTitleDesc().isEmpty()) {
+			if(repository.findAll("title,desc").isEmpty()) {
 				repository.save(BookDTO.builder().title("Crime and Punishment").author("F. Dostoevsky").build());
 				repository.save(BookDTO.builder().title("Anna Karenina").author("L. Tolstoy").build());
 				repository.save(BookDTO.builder().title("The Brothers Karamazov").author("F. Dostoevsky").build());
