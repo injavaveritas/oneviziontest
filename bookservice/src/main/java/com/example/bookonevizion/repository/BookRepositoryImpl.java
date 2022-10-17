@@ -3,15 +3,18 @@ package com.example.bookonevizion.repository;
 import com.example.bookonevizion.dto.SymbolCountByAuthorsDTO;
 import com.example.bookonevizion.dto.BookDTO;
 import com.example.bookonevizion.entity.BookEntity;
+import com.example.bookonevizion.exception.InputValidationException;
 import com.example.bookonevizion.mapper.BookMapper;
 import lombok.AllArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.PreparedStatementCreator;
+import org.springframework.jdbc.core.PreparedStatementCreatorFactory;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
 import java.sql.*;
 import java.util.*;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Repository
@@ -72,13 +75,19 @@ public class BookRepositoryImpl implements BookRepository {
 
     @Override
     public List<SymbolCountByAuthorsDTO> symbolCountByAuthors(String symbol) {
-        String query =
-                "select symbol_occur.author, count(symbol) as symbol_count from (select author, regexp_matches(title, '" +
-                symbol +
-                "', 'gi') symbol from one_vizion.book) as symbol_occur group by symbol_occur.author order by symbol_count desc limit 10";
+        if (Pattern.matches("[a-zA-Z0-9]{1}", symbol)) {
+            PreparedStatementCreatorFactory preparedStatementCreatorFactory =
+                    new PreparedStatementCreatorFactory(
+                            "select symbol_occur.author, count(symbol) as symbol_count from (select author, regexp_matches(title, ?, 'gi') symbol from one_vizion.book) as symbol_occur group by symbol_occur.author order by symbol_count desc limit 10",
+                            Types.VARCHAR
+                    );
+            PreparedStatementCreator preparedStatementCreator =
+                    preparedStatementCreatorFactory.newPreparedStatementCreator(Collections.singletonList(symbol));
+            return jdbcTemplate.query(preparedStatementCreator, this::rowToAuthorSymbolCountDTO);
 
-        return jdbcTemplate.query(query, this::rowToAuthorSymbolCountDTO);
-
+        } else {
+            throw new InputValidationException();
+        }
     }
 
     private BookEntity rowToBookEntity(ResultSet row, int rowNum) throws SQLException {
